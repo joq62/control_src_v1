@@ -1,0 +1,330 @@
+%%% -------------------------------------------------------------------
+%%% @author  : Joq Erlang
+%%% @doc: : 
+%%% 
+%%% Created : 10 dec 2012
+%%% -------------------------------------------------------------------
+-module(control). 
+
+-behaviour(gen_server).
+%% --------------------------------------------------------------------
+%% Include files
+%% --------------------------------------------------------------------
+%-include("log.hrl").
+%% --------------------------------------------------------------------
+
+
+%% --------------------------------------------------------------------
+%% Key Data structures
+%% 
+%% --------------------------------------------------------------------
+-record(state,{missing,obsolite,failed}).
+
+
+%% --------------------------------------------------------------------
+%% Definitions 
+-define(HbInterval,30*1000).
+-define(ScheduleInterval,3*60*1000).
+%% --------------------------------------------------------------------
+
+-export([
+	 schedule/2
+	]).
+
+-export([load_app_specs/3,
+	 read_app_specs/0,
+	 read_app_spec/1,
+	 load_service_specs/3,
+	 read_service_specs/0,
+	 read_service_spec/1
+	]).
+
+-export([create_service/4,delete_service/4,
+	 create_deployment_spec/3,
+	 delete_deployment_spec/2,
+	 read_deployment_spec/2,
+	 deploy_app/2,
+	 depricate_app/1,
+	 delete_deployment/1
+	]).
+
+-export([start/1,
+	 start/0,
+	 stop/0,
+	 ping/0,
+	 heartbeat/1
+	]).
+
+%% gen_server callbacks
+-export([init/1, handle_call/3,handle_cast/2, handle_info/2, terminate/2, code_change/3]).
+
+
+%% ====================================================================
+%% External functions
+%% ====================================================================
+
+%% Asynchrounus Signals
+
+
+
+%% Gen server functions
+start(GitConfigs)-> gen_server:start_link({local, ?MODULE}, ?MODULE, [GitConfigs], []).
+start()-> gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
+stop()-> gen_server:call(?MODULE, {stop},infinity).
+
+ping()-> 
+    gen_server:call(?MODULE, {ping},infinity).
+
+%%-----------------------------------------------------------------------
+
+
+
+load_app_specs(AppSpecsDir,GitUser,GitPassWd)->
+    gen_server:call(?MODULE, {load_app_specs,AppSpecsDir,GitUser,GitPassWd},infinity). 
+read_app_specs()->
+    gen_server:call(?MODULE, {read_app_specs},infinity). 
+read_app_spec(AppId)->
+    gen_server:call(?MODULE, {read_app_spec,AppId},infinity). 
+
+load_service_specs(AppSpecsDir,GitUser,GitPassWd)->
+    gen_server:call(?MODULE, {load_service_specs,AppSpecsDir,GitUser,GitPassWd},infinity). 
+read_service_specs()->
+    gen_server:call(?MODULE, {read_service_specs},infinity). 
+read_service_spec(AppId)->
+    gen_server:call(?MODULE, {read_service_spec,AppId},infinity). 
+
+
+create_service(ServiceId,Vsn,HostId,VmId)->
+    gen_server:call(?MODULE, {create_service,ServiceId,Vsn,HostId,VmId},infinity).    
+delete_service(ServiceId,Vsn,HostId,VmId)->
+    gen_server:call(?MODULE, {delete_service,ServiceId,Vsn,HostId,VmId},infinity).  
+
+deploy_app(AppId,AppVsn)->
+    gen_server:call(?MODULE, {deploy_app,AppId,AppVsn},infinity).
+depricate_app(DeploymentId)->
+    gen_server:call(?MODULE, {depricate_app,DeploymentId},infinity).
+delete_deployment(DeploymentId)->
+    gen_server:call(?MODULE, {delete_deployment,DeploymentId},infinity).
+    
+create_deployment_spec(AppId,AppVsn,ServiceList)->
+    gen_server:call(?MODULE, {create_deployment_spec,AppId,AppVsn,ServiceList},infinity).
+delete_deployment_spec(AppId,AppVsn)->
+    gen_server:call(?MODULE, {delete_deployment_spec,AppId,AppVsn},infinity).
+read_deployment_spec(AppId,AppVsn)->
+    gen_server:call(?MODULE, {read_deployment_spec,AppId,AppVsn},infinity).
+
+%%---------------------------------------------------------------------
+schedule(ScheduleInterval,Result)->
+    gen_server:cast(?MODULE, {schedule,ScheduleInterval,Result}).
+    
+
+heartbeat(Interval)->
+    gen_server:cast(?MODULE, {heart_beat,Interval}).
+
+
+%% ====================================================================
+%% Server functions
+%% ====================================================================
+
+%% --------------------------------------------------------------------
+%% Function: init/1
+%% Description: Initiates the server
+%% Returns: {ok, State}          |
+%%          {ok, State, Timeout} |
+%%          ignore               |
+%%          {stop, Reason}
+%
+%% --------------------------------------------------------------------
+init(Args) ->
+    case Args of 
+	[]-> %% "Cluster already running
+	    ok;
+	[GitConfigs]->
+	    rpc:call(node(),control_lib,init_dbase,[GitConfigs])
+    end,
+	    
+ %   io:format("Args= ~p~n",[{Args,?MODULE,?LINE}]),
+    spawn(fun()->kick_scheduler(?ScheduleInterval) end),
+  %  spawn(fun()->h_beat(?HbInterval) end),     
+    
+    {ok, #state{}}.   
+    
+%% --------------------------------------------------------------------
+%% Function: handle_call/3
+%% Description: Handling call messages
+%% Returns: {reply, Reply, State}          |
+%%          {reply, Reply, State, Timeout} |
+%%          {noreply, State}               |
+%%          {noreply, State, Timeout}      |
+%%          {stop, Reason, Reply, State}   | (terminate/2 is called)
+%%          {stop, Reason, State}            (aterminate/2 is called)
+%% --------------------------------------------------------------------
+handle_call({ping},_From,State) ->
+    Reply={pong,node(),?MODULE},
+    {reply, Reply, State};
+
+handle_call({read_app_specs},_From,State) ->
+    Reply=rpc:call(node(),deployment,read_app_specs,[],2*5000),
+    {reply, Reply, State};
+handle_call({read_app_spec,AppId},_From,State) ->
+    Reply=rpc:call(node(),deployment,read_app_spec,[AppId],2*5000),
+    {reply, Reply, State};
+
+handle_call({load_app_specs,AppSpecsDir,GitUser,GitPassWd},_From,State) ->
+    Reply=rpc:call(node(),deployment,load_app_specs,[AppSpecsDir,GitUser,GitPassWd],2*5000),
+    {reply, Reply, State};
+
+handle_call({read_service_specs},_From,State) ->
+    Reply=rpc:call(node(),deployment,read_service_specs,[],2*5000),
+    {reply, Reply, State};
+handle_call({read_service_spec,Id},_From,State) ->
+    Reply=rpc:call(node(),deployment,read_service_spec,[Id],2*5000),
+    {reply, Reply, State};
+
+handle_call({load_service_specs,SpecsDir,GitUser,GitPassWd},_From,State) ->
+    Reply=rpc:call(node(),deployment,load_service_specs,[SpecsDir,GitUser,GitPassWd],2*5000),
+    {reply, Reply, State};
+
+
+handle_call({create_service,ServiceId,Vsn,HostId,VmId},_From,State) ->
+    Reply=rpc:call(node(),service,create,[ServiceId,Vsn,HostId,VmId],2*5000),
+    {reply, Reply, State};
+
+handle_call({delete_service,ServiceId,Vsn,HostId,VmId},_From,State) ->
+    Reply=rpc:call(node(),service,delete,[ServiceId,Vsn,HostId,VmId],5000),
+    {reply, Reply, State};
+
+handle_call({deploy_app,AppId,AppVsn},_From,State) ->
+    Reply=rpc:call(node(),deployment,deploy_app,[AppId,AppVsn],25000),
+    {reply, Reply, State};
+
+handle_call({depricate_app,DeploymentId},_From,State) ->
+    Reply=rpc:call(node(),deployment,depricate_app,[DeploymentId],5000),
+    {reply, Reply, State};
+handle_call({delete_deployment,DeploymentId},_From,State) ->
+    Reply=if_db:deployment_delete(DeploymentId),
+    {reply, Reply, State};
+
+handle_call({create_deployment_spec,AppId,AppVsn,ServiceList},_From,State) ->
+    Reply=rpc:call(node(),deployment,create_spec,[AppId,AppVsn,ServiceList],5000),
+    {reply, Reply, State};
+
+handle_call({delete_deployment_spec,AppId,AppVsn},_From,State) ->
+    Reply=rpc:call(node(),deployment,delete_spec,[AppId,AppVsn],5000),
+    {reply, Reply, State};
+
+handle_call({read_deployment_spec,AppId,AppVsn},_From,State) ->
+    Reply=rpc:call(node(),deployment,read_spec,[AppId,AppVsn],5000),
+    {reply, Reply, State};
+
+handle_call({stop}, _From, State) ->
+    {stop, normal, shutdown_ok, State};
+
+handle_call(Request, From, State) ->
+    %?LOG_INFO(error,{unmatched_signal,Request,From}),
+    Reply = {unmatched_signal,?MODULE,Request,From},
+    {reply, Reply, State}.
+
+%% --------------------------------------------------------------------
+%% Function: handle_cast/2
+%% Description: Handling cast messages
+%% Returns: {noreply, State}          |
+%%          {noreply, State, Timeout} |
+%%          {stop, Reason, State}            (terminate/2 is called)
+%% -------------------------------------------------------------------
+handle_cast({schedule,ScheduleInterval,Result}, State) ->
+    %% Check REsult
+    io:format("Schedule Result  ~p~n",[{Result,?MODULE,?LINE}]),
+    spawn(fun()->kick_scheduler(ScheduleInterval) end),
+    {noreply, State};
+
+handle_cast(Msg, State) ->
+    io:format("unmatched match cast ~p~n",[{?MODULE,?LINE,Msg}]),
+    {noreply, State}.
+
+%% --------------------------------------------------------------------
+%% Function: handle_info/2
+%% Description: Handling all non call/cast messages
+%% Returns: {noreply, State}          |
+%%          {noreply, State, Timeout} |
+%%          {stop, Reason, State}            (terminate/2 is called)
+%% --------------------------------------------------------------------
+
+handle_info(Info, State) ->
+    io:format("unmatched match info ~p~n",[{?MODULE,?LINE,Info}]),
+    {noreply, State}.
+
+
+%% --------------------------------------------------------------------
+%% Function: terminate/2
+%% Description: Shutdown the server
+%% Returns: any (ignored by gen_server)
+%% --------------------------------------------------------------------
+terminate(_Reason, _State) ->
+    ok.
+
+%% --------------------------------------------------------------------
+%% Func: code_change/3
+%% Purpose: Convert process state when code is changed
+%% Returns: {ok, NewState}
+%% --------------------------------------------------------------------
+code_change(_OldVsn, State, _Extra) ->
+    {ok, State}.
+
+%% --------------------------------------------------------------------
+%%% Internal functions
+%% --------------------------------------------------------------------
+%% --------------------------------------------------------------------
+%% Function: 
+%% Description:
+%% Returns: non
+%% --------------------------------------------------------------------
+
+
+%% --------------------------------------------------------------------
+%% Internal functions
+%% --------------------------------------------------------------------
+
+%% --------------------------------------------------------------------
+%% Function: 
+%% Description:
+%% Returns: non
+%% --------------------------------------------------------------------
+kick_scheduler(ScheduleInterval)->
+    timer:sleep(ScheduleInterval),
+    Result=case rpc:call(node(),deployment,missing_apps,[],5000) of
+	       {badrpc,Reason}->
+		   {error,[badrpc,Reason,?MODULE,?LINE]};
+	       {error,Reason}->
+		   {error,Reason};
+	       MissingApps ->
+		   case rpc:call(node(),deployment,depricated_apps,[],5000) of
+		       {badrpc,Reason}->
+			   {error,[badrpc,Reason,?MODULE,?LINE]};
+		       {error,Reason}->
+			   {error,Reason};
+		       DepricatedApps ->
+			   case rpc:call(node(),deployment,create_missing,[MissingApps],5000) of
+			       {badrpc,Reason}->
+				   {error,[badrpc,Reason,?MODULE,?LINE]};
+			       {error,Reason}->
+				   {error,Reason};
+			       ok->
+				   case rpc:call(node(),deployment,delete_depricated,[DepricatedApps],5000) of
+				       {badrpc,Reason}->
+					   {error,[badrpc,Reason,?MODULE,?LINE]};
+				       {error,Reason}->
+					   {error,Reason};
+				       ok->
+					   ok
+				   end
+			   end
+		   end
+	   end,
+    rpc:cast(node(),control,schedule,[ScheduleInterval,Result]).
+			       
+				   
+			   
+					   
+   
+    
