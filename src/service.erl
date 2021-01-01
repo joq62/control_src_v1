@@ -15,7 +15,7 @@
 	]).
 
 create(ServiceSpecId,VmDir,Vm)->
-    Result=case if_db:call(db_service_def,read,[ServiceSpecId]) of
+    Result=case rpc:call(node(),db_service_def,read,[ServiceSpecId]) of
 	       []->
 		   {error,[eexists,ServiceSpecId]};
 	       [{ServiceSpecId,ServiceId,ServiceVsn,StartCmd,GitPath}]->
