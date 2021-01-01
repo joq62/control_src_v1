@@ -77,7 +77,7 @@ create(HostId,VmId,VmDir,Cookie,PreLoadedServices)->
 	       {error,Err}->
 		   {error,Err};
 	       {ok,CreatedVm}->
-		   ServiceInfo=lists:append(rpc:call(node(),db_service_def,read,[ZServiceId,ZServiceVsn])||
+		   ServiceInfo=lists:append([rpc:call(node(),db_service_def,read,[ZServiceId,ZServiceVsn])||
 						{ZServiceId,ZServiceVsn}<-PreLoadedServices]),
 		   io:format("ServiceInfo = ~p~n",[ServiceInfo]),
 		   StartResult=[{service:create(CreatedVm,VmDir,ServiceId,ServiceVsn,StartMFA,GitPath),ServiceId,ServiceVsn}||

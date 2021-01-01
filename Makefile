@@ -1,4 +1,5 @@
 all:
+	erlc -o ebin src/*.erl;
 	rm -rf ebin/* src/*.beam *.beam;
 	rm -rf app_specs service_specs cluster_con*;
 	rm -rf  *~ */*~  erl_cra*;
