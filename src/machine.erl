@@ -23,14 +23,14 @@
 %% Returns: non
 %% -------------------------------------------------------------------
 read_status(all)->
-    AllServers=if_db:server_read_all(),
+    AllServers=db_server:read_all(),
     AllServersStatus=[{Status,HostId}||{HostId,_User,_PassWd,_IpAddr,_Port,Status}<-AllServers],
     Running=[HostId||{running,HostId}<-AllServersStatus],
     NotAvailable=[HostId||{not_available,HostId}<-AllServersStatus],
     [{running,Running},{not_available,NotAvailable}];
 
 read_status(XHostId) ->
-    AllServers=if_db:server_read_all(),
+    AllServers=db_server:read_all(),
     [ServersStatus]=[Status||{HostId,_User,_PassWd,_IpAddr,_Port,Status}<-AllServers,
 		     XHostId==HostId],
     ServersStatus.
@@ -42,8 +42,8 @@ read_status(XHostId) ->
 %% Returns: non
 %% -------------------------------------------------------------------
 update_status([{running,Running},{not_available,NotAvailable}])->
-    [if_db:server_update(HostId,running)||HostId<-Running],
-    [if_db:server_update(HostId,not_available)||HostId<-NotAvailable],    
+    [db_server:update(HostId,running)||HostId<-Running],
+    [db_server:update(HostId,not_available)||HostId<-NotAvailable],    
     ok.
 
 %% -------------------------------------------------------------------
