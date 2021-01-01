@@ -28,6 +28,8 @@
 %% --------------------------------------------------------------------
 
 -export([
+	 create_application/1,
+	 delete_application/1,
 	 schedule/2
 	]).
 
@@ -76,7 +78,10 @@ ping()->
     gen_server:call(?MODULE, {ping},infinity).
 
 %%-----------------------------------------------------------------------
-
+create_application(AppSpec)->
+    gen_server:call(?MODULE, {create_application,AppSpec},infinity). 
+delete_application(AppSpec)->
+    gen_server:call(?MODULE, {delete_application,AppSpec},infinity). 
 
 
 load_app_specs(AppSpecsDir,GitUser,GitPassWd)->
@@ -135,18 +140,9 @@ heartbeat(Interval)->
 %%          {stop, Reason}
 %
 %% --------------------------------------------------------------------
-init(Args) ->
-    case Args of 
-	[]-> %% "Cluster already running
-	    ok;
-	[GitConfigs]->
-	    rpc:call(node(),control_lib,init_dbase,[GitConfigs])
-    end,
-	    
- %   io:format("Args= ~p~n",[{Args,?MODULE,?LINE}]),
+init(_Args) ->
     spawn(fun()->kick_scheduler(?ScheduleInterval) end),
-  %  spawn(fun()->h_beat(?HbInterval) end),     
-    
+   
     {ok, #state{}}.   
     
 %% --------------------------------------------------------------------
@@ -162,6 +158,21 @@ init(Args) ->
 handle_call({ping},_From,State) ->
     Reply={pong,node(),?MODULE},
     {reply, Reply, State};
+
+handle_call({create_application,AppSpec},_From,State) ->
+    Reply=rpc:call(node(),deployment,create_application,[AppSpec],5*5*1000),
+    {reply, Reply, State};
+
+handle_call({delete_application,AppSpec},_From,State) ->
+    Reply=rpc:call(node(),deployment,delete_application,[AppSpec],2*5*1000),
+    {reply, Reply, State};
+
+
+
+
+
+
+%%---------------------------------------------------------------------
 
 handle_call({read_app_specs},_From,State) ->
     Reply=rpc:call(node(),deployment,read_app_specs,[],2*5000),

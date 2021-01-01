@@ -51,7 +51,7 @@
 %% Returns: ok |{error,Err}
 %% --------------------------------------------------------------------
 create_application(AppSpec)->
-    Result=case rpc:call(node(),db_app_spec,read,[AppSpec]) of
+    Result=case if_db:call(db_app_spec,read,[AppSpec]) of
 	       [{AppSpec,AppVsn,Directive,ServiceSpecs}]->
 		   case directive_info(AppSpec,Directive) of
 		       [{ok,HostId},{ok,VmId},{ok,VmDir}]->
@@ -64,7 +64,7 @@ create_application(AppSpec)->
 									      R/=ok],
 				   case CheckAllStarted of
 				       []->
-					   [{rpc:call(node(),db_sd,create,[XServiceId,XServiceVsn,AppSpec,AppVsn,HostId,VmId,VmDir,Vm]),XServiceId,XServiceVsn,Vm}||{ok,XServiceId,XServiceVsn}<-CreateResult],
+					   [{if_db:call(db_sd,create,[XServiceId,XServiceVsn,AppSpec,AppVsn,HostId,VmId,VmDir,Vm]),XServiceId,XServiceVsn,Vm}||{ok,XServiceId,XServiceVsn}<-CreateResult],
 				     {ok,AppSpec,HostId,VmId,Vm};
 					   
 				       _->
@@ -80,7 +80,7 @@ create_application(AppSpec)->
     Result.
 
 random_host()->
-    Result= case rpc:call(node(),db_server,status,[running]) of
+    Result= case if_db:call(db_server,status,[running]) of
 		[]->
 		    {error,[no_running_hosts_available]};
 		RunningHosts->
@@ -124,7 +124,7 @@ directive_info(AppSpec,Directive)->
 %% Returns: ok |{error,Err}
 %% --------------------------------------------------------------------
 delete_application(AppSpec)->
-    Result=case rpc:call(node(),db_sd,app_spec,[AppSpec]) of
+    Result=case if_db:call(db_sd,app_spec,[AppSpec]) of
 	       []->
 		   {error,[eexists,AppSpec]};
 	       ServicesList->
@@ -135,7 +135,7 @@ delete_application(AppSpec)->
 		% Stop the vm
 		   rpc:call(Vm,init,stop,[],2000),
 	       % Remove from sd discovery	       
-	       [rpc:call(node(),db_sd,delete,[ServiceId,ServiceVsn,XVm])||
+	       [if_db:call(db_sd,delete,[ServiceId,ServiceVsn,XVm])||
 		   {ServiceId,ServiceVsn,_,_,_,_,XVm}<-ServicesList],
 	       ok
        end,
@@ -148,8 +148,8 @@ delete_application(AppSpec)->
 %% --------------------------------------------------------------------
 missing_apps()->
     %1.check if appspecs is presente in some of the services Simple algorithm 
-    ActiveServicesApps=rpc:call(node(),db_sd,active_apps,[]),
-    WantedApps=rpc:call(node(),db_app_spec,all_app_specs,[]),
+    ActiveServicesApps=if_db:call(db_sd,active_apps,[]),
+    WantedApps=if_db:call(db_app_spec,all_app_specs,[]),
     [XAppSpec||XAppSpec<-WantedApps,
 	       false==lists:member(XAppSpec,ActiveServicesApps)].
 
@@ -160,8 +160,8 @@ missing_apps()->
 %% --------------------------------------------------------------------    
 depricated_apps()->
     %1.check if appspecs is presente in some of the services Simple algorithm 
-    ActiveServicesApps=rpc:call(node(),db_sd,active_apps,[]),
-    WantedApps=rpc:call(node(),db_app_spec,all_app_specs,[]),
+    ActiveServicesApps=if_db:call(db_sd,active_apps,[]),
+    WantedApps=if_db:call(db_app_spec,all_app_specs,[]),
     DepricatedDoublets=[XAppSpec||XAppSpec<-ActiveServicesApps,
 		       false==lists:member(XAppSpec,WantedApps)],
     filter_doublets(DepricatedDoublets,[]).
@@ -183,7 +183,7 @@ filter_doublets([X|T],Acc)->
 %% Returns: ok |{error,Err}
 %% --------------------------------------------------------------------
 get_wanted_service_info(AppSpec)->
-    Result=case rpc:call(node(),db_app_spec,read,[AppSpec]) of
+    Result=case if_db:call(db_app_spec,read,[AppSpec]) of
 	       [{AppSpec,AppVsn,Directive,ServiceSpecs}]->
 		   get_wanted_service_info(AppSpec,AppVsn,Directive,ServiceSpecs);
 	       [] ->
@@ -215,7 +215,7 @@ get_wanted_service_info(AppSpec,_AppVsn,Directive,ServiceSpecs)->
        end,
    % io:format("ServiceSpecs ~p~n",[ServicSpecs]),
     
-    ServiceInfo=lists:append([rpc:call(node(),db_service_def,read,[ServiceSpec])||ServiceSpec<-ServiceSpecs]),
+    ServiceInfo=lists:append([if_db:call(db_service_def,read,[ServiceSpec])||ServiceSpec<-ServiceSpecs]),
     [{ServiceId,ServiceVsn,AppSpec,HostId,VmId,Vm}||{_ServiceSpec,ServiceId,ServiceVsn,_StartCmd,_GitPath}<-ServiceInfo].
 
 %% --------------------------------------------------------------------
@@ -225,7 +225,7 @@ get_wanted_service_info(AppSpec,_AppVsn,Directive,ServiceSpecs)->
 %% --------------------------------------------------------------------
 
 read_app_spec(AppId)->
-    rpc:call(node(),db_app_spec,read,[AppId]).
+    if_db:call(db_app_spec,read,[AppId]).
 %% --------------------------------------------------------------------
 %% Function:create(ServiceId,Vsn,HostId,VmId)
 %% Description: Starts vm and deploys services 
@@ -233,7 +233,7 @@ read_app_spec(AppId)->
 %% --------------------------------------------------------------------
 
 read_app_specs()->
-    rpc:call(node(),db_app_spec,read_all,[]).
+    if_db:call(db_app_spec,read_all,[]).
     
 %% --------------------------------------------------------------------
 %% Function:create(ServiceId,Vsn,HostId,VmId)
@@ -273,7 +273,7 @@ load_app_specs(AppSpecDir,GitUser,GitPassWd)->
 %% --------------------------------------------------------------------
 
 read_service_spec(Id)->
-    rpc:call(node(),db_service_def,read,[Id]).
+    if_db:call(db_service_def,read,[Id]).
 %% --------------------------------------------------------------------
 %% Function:create(ServiceId,Vsn,HostId,VmId)
 %% Description: Starts vm and deploys services 
@@ -281,7 +281,7 @@ read_service_spec(Id)->
 %% --------------------------------------------------------------------
 
 read_service_specs()->
-    rpc:call(node(),db_service_def,read_all,[]).
+    if_db:call(db_service_def,read_all,[]).
     
 %% --------------------------------------------------------------------
 %% Function:create(ServiceId,Vsn,HostId,VmId)
