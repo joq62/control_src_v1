@@ -3,8 +3,8 @@
 %%% @doc : ets dbase for master service to manage app info , catalog  
 %%%
 %%% -------------------------------------------------------------------
--module(schdule).
- 
+-module(schedule).
+  
 
 %% --------------------------------------------------------------------
 %% Include files
