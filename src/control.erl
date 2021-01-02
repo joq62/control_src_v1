@@ -24,7 +24,7 @@
 %% --------------------------------------------------------------------
 %% Definitions 
 -define(HbInterval,30*1000).
--define(ScheduleInterval,3*60*1000).
+-define(ScheduleInterval,30*1000).
 %% --------------------------------------------------------------------
 
 -export([
@@ -303,34 +303,15 @@ code_change(_OldVsn, State, _Extra) ->
 %% --------------------------------------------------------------------
 kick_scheduler(ScheduleInterval)->
     timer:sleep(ScheduleInterval),
-    Result=case rpc:call(node(),deployment,missing_apps,[],5000) of
-	       {badrpc,Reason}->
-		   {error,[badrpc,Reason,?MODULE,?LINE]};
-	       {error,Reason}->
-		   {error,Reason};
-	       MissingApps ->
-		   case rpc:call(node(),deployment,depricated_apps,[],5000) of
-		       {badrpc,Reason}->
-			   {error,[badrpc,Reason,?MODULE,?LINE]};
-		       {error,Reason}->
-			   {error,Reason};
-		       DepricatedApps ->
-			   case rpc:call(node(),deployment,create_missing,[MissingApps],5000) of
-			       {badrpc,Reason}->
-				   {error,[badrpc,Reason,?MODULE,?LINE]};
-			       {error,Reason}->
-				   {error,Reason};
-			       ok->
-				   case rpc:call(node(),deployment,delete_depricated,[DepricatedApps],5000) of
-				       {badrpc,Reason}->
-					   {error,[badrpc,Reason,?MODULE,?LINE]};
-				       {error,Reason}->
-					   {error,Reason};
-				       ok->
-					   ok
-				   end
-			   end
-		   end
+    %% Check if lock is open so it's time for checking
+
+    Result=case rpc:call(node(),db_lock,is_open,[schedule,10],2000) of
+	       false->
+		   {no_scheduling,[]};
+	       true->
+		   MissingResult=rpc:call(node(),schedule,missing,[],5*5000),
+		   DepricatedResult=rpc:call(node(),schedule,depricated,[],5*5000),
+		   {scheduled,[{missing,MissingResult},{depricated,DepricatedResult}]}
 	   end,
     rpc:cast(node(),control,schedule,[ScheduleInterval,Result]).
 			       
