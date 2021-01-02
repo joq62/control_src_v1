@@ -52,7 +52,7 @@
 %% --------------------------------------------------------------------
 create_application(AppSpec)->
     Result=case rpc:call(node(),db_app_spec,read,[AppSpec]) of
-	       [{AppSpec,AppVsn,Directive,ServiceSpecs}]->
+	       [{AppSpec,AppVsn,_Type,Directive,ServiceSpecs}]->
 		   case directive_info(AppSpec,Directive) of
 		       [{ok,HostId},{ok,VmId},{ok,VmDir}]->
 			   case vm:create(HostId,VmId,VmDir,?Cookie) of
@@ -184,8 +184,8 @@ filter_doublets([X|T],Acc)->
 %% --------------------------------------------------------------------
 get_wanted_service_info(AppSpec)->
     Result=case rpc:call(node(),db_app_spec,read,[AppSpec]) of
-	       [{AppSpec,AppVsn,Directive,ServiceSpecs}]->
-		   get_wanted_service_info(AppSpec,AppVsn,Directive,ServiceSpecs);
+	       [{AppSpec,AppVsn,Type,Directive,ServiceSpecs}]->
+		   get_wanted_service_info(AppSpec,AppVsn,Type,Directive,ServiceSpecs);
 	       [] ->
 		   {error,[eexists,AppSpec]};
 	       Reason ->
@@ -194,7 +194,7 @@ get_wanted_service_info(AppSpec)->
     Result.
 
 
-get_wanted_service_info(AppSpec,_AppVsn,Directive,ServiceSpecs)->
+get_wanted_service_info(AppSpec,_AppVsn,_Type,Directive,ServiceSpecs)->
     HostId=case lists:keyfind(host,1,Directive) of
 	       false->
 		   host_any;

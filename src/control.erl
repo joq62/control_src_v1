@@ -307,11 +307,13 @@ kick_scheduler(ScheduleInterval)->
 
     Result=case rpc:call(node(),db_lock,is_open,[schedule,10],2000) of
 	       false->
-		   {no_scheduling,[]};
+		   ActiveApps=rpc:call(node(),schedule,active,[],5*5000),
+		   {no_scheduling,[{active,ActiveApps}]};
 	       true->
+		   ActiveApps=rpc:call(node(),schedule,active,[],5*5000),
 		   MissingResult=rpc:call(node(),schedule,missing,[],5*5000),
 		   DepricatedResult=rpc:call(node(),schedule,depricated,[],5*5000),
-		   {scheduled,[{missing,MissingResult},{depricated,DepricatedResult}]}
+		   {scheduled,[{active,ActiveApps},{missing,MissingResult},{depricated,DepricatedResult}]}
 	   end,
     rpc:cast(node(),control,schedule,[ScheduleInterval,Result]).
 			       
