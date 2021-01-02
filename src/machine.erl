@@ -68,7 +68,7 @@ status()->
     F2=fun check_host_status/3,
     
     AllServers=db_server:read_all(),
-  %  io:format("AllServers = ~p~n",[{?MODULE,?LINE,AllServers}]),
+ %   io:format("AllServers = ~p~n",[{?MODULE,?LINE,AllServers}]),
     Status=mapreduce:start(F1,F2,[],AllServers),
   %  io:format("Status = ~p~n",[{?MODULE,?LINE,Status}]),
     Status.

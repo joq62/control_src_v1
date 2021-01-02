@@ -64,8 +64,8 @@ create_application(AppSpec)->
 									      R/=ok],
 				   case CheckAllStarted of
 				       []->
-					   [{rpc:call(node(),db_sd,create,[XServiceId,XServiceVsn,AppSpec,AppVsn,HostId,VmId,VmDir,Vm]),XServiceId,XServiceVsn,Vm}||{ok,XServiceId,XServiceVsn}<-CreateResult],
-				     {ok,AppSpec,HostId,VmId,Vm};
+					   SdResult=[{rpc:call(node(),db_sd,create,[XServiceId,XServiceVsn,AppSpec,AppVsn,HostId,VmId,VmDir,Vm]),XServiceId,XServiceVsn,Vm}||{ok,XServiceId,XServiceVsn}<-CreateResult],
+					   {ok,AppSpec,HostId,VmId,Vm,SdResult};
 					   
 				       _->
 					   {error,[create_application,CheckAllStarted,?MODULE,?LINE]}
