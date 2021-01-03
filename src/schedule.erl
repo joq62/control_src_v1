@@ -54,9 +54,11 @@ missing()->
 		[]->
 		    ok;
 		WorkerAppSpecs->
-		    misc_oam:print("StartResult ~p~n",[[deployment:create_application(WorkerAppSpec)||WorkerAppSpec<-WorkerAppSpecs]])
+		    misc_oam:print("Start WorkerAppSpecs  ~p~n",[{WorkerAppSpecs, ?MODULE,?LINE}]),
+		    misc_oam:print("StartResult WorkerAppSpecs ~p~n",[[deployment:create_application(WorkerAppSpec)||WorkerAppSpec<-WorkerAppSpecs]])
 	    end;
 	MasterAppSpecs->
+	    misc_oam:print("Start MasterAppSpecs  ~p~n",[{MasterAppSpecs, ?MODULE,?LINE}]),
 	    StartResult=[deployment:create_application(MasterAppSpec)||MasterAppSpec<-MasterAppSpecs],
 	    misc_oam:print("StartResult ~p~n",[{StartResult,?MODULE,?LINE}]),
 	    timer:sleep(1000),

@@ -246,7 +246,20 @@ handle_call(Request, From, State) ->
 %% -------------------------------------------------------------------
 handle_cast({schedule,ScheduleInterval,Result}, State) ->
     %% Check REsult
-    misc_oam:print("Schedule Result  ~p~n",[{Result,?MODULE,?LINE}]),
+    case Result of
+	{no_scheduling,_}->
+	    ok;
+	{scheduled,[{active,_Z},
+		    {missing,{[],[]}},
+		    {depricated,[]}]}->
+	    ok;
+	{scheduled,[{active,_},
+		    {missing,_},
+		     {depricated,_}]}->
+	    misc_oam:print("Schedule Result  ~p~n",[{Result,?MODULE,?LINE}]);
+	X ->
+	    misc_oam:print("Unmatched  ~p~n",[X])
+    end,
     spawn(fun()->kick_scheduler(ScheduleInterval) end),
     {noreply, State};
 
@@ -304,9 +317,9 @@ code_change(_OldVsn, State, _Extra) ->
 %% --------------------------------------------------------------------
 kick_scheduler(ScheduleInterval)->
     misc_oam:print("kick_scheduler ~p~n",[{time(),?MODULE,?LINE}]),
-    timer:sleep(3000),
+    timer:sleep(1000),
     StatusMachines=rpc:call(node(),machine,status,[all],2*5000),
-    misc_oam:print("StatusMachines ~p~n",[StatusMachines]),
+   % misc_oam:print("StatusMachines ~p~n",[StatusMachines]),
     rpc:call(node(),machine,update_status,[StatusMachines],5000),
     
     timer:sleep(ScheduleInterval),

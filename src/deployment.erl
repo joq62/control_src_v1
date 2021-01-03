@@ -147,21 +147,32 @@ delete_application(AppSpec)->
 %% Returns: ok |{error,Err}
 %% --------------------------------------------------------------------
 missing_apps()->
-    %% 1. Check for missing services- 
+    %% 1. Check for missing services and remove missing services 
     AllServices=db_sd:read_all(),
-    misc_oam:print("AllServices ~p~n",[AllServices]),
+%    misc_oam:print("AllServices ~p~n",[AllServices]),
     PingTest=[{rpc:call(Vm,list_to_atom(ServiceId),ping,[],2000),ServiceId,ServiceVsn,Vm}||
 	     {ServiceId,ServiceVsn,_AppId,_AppVsn,_HostId,_VmId,_VmDir,Vm}<-AllServices],
-    misc_oam:print("PingTest ~p~n",[PingTest]),
+ %   misc_oam:print("PingTest ~p~n",[PingTest]),
 
     Deleted=[{db_sd:delete(XServiceId,XServiceVsn,XVm),XServiceId,XServiceVsn,XVm}||{{badrpc,_},XServiceId,XServiceVsn,XVm}<-PingTest],
-    misc_oam:print("Deleted ~p~n",[Deleted]),
+    %% DEbug
+    case Deleted of
+	[]->
+	    ok;
+	_->    misc_oam:print("Deleted ~p~n",[{Deleted,?MODULE,?LINE}])
+    end,
     %1.check if appspecs is presente in some of the services Simple algorithm 
     ActiveServicesApps=rpc:call(node(),db_sd,active_apps,[]),
-    misc_oam:print("ActiveServicesApps ~p~n",[ActiveServicesApps]),
+  %  misc_oam:print("ActiveServicesApps ~p~n",[ActiveServicesApps]),
     WantedApps=rpc:call(node(),db_app_spec,all_app_specs,[]),
-    [XAppSpec||XAppSpec<-WantedApps,
-	       false==lists:member(XAppSpec,ActiveServicesApps)].
+    MissingApps=[XAppSpec||XAppSpec<-WantedApps,
+			   false==lists:member(XAppSpec,ActiveServicesApps)],
+    case MissingApps of
+	[]->
+	    ok;
+	_->    misc_oam:print("MissingApps ~p~n",[{MissingApps,?MODULE,?LINE}])
+    end,
+    MissingApps.
 
 %% --------------------------------------------------------------------
 %% Function:create(ServiceId,Vsn,HostId,VmId)
