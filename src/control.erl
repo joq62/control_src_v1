@@ -24,7 +24,7 @@
 %% --------------------------------------------------------------------
 %% Definitions 
 -define(HbInterval,30*1000).
--define(ScheduleInterval,30*1000).
+-define(ScheduleInterval,2*30*1000).
 %% --------------------------------------------------------------------
 
 -export([
@@ -141,6 +141,7 @@ heartbeat(Interval)->
 %
 %% --------------------------------------------------------------------
 init(_Args) ->
+    misc_oam:print("Service started ~p~n",[{?MODULE,node()}]),
     spawn(fun()->kick_scheduler(?ScheduleInterval) end),
    
     {ok, #state{}}.   
@@ -245,7 +246,7 @@ handle_call(Request, From, State) ->
 %% -------------------------------------------------------------------
 handle_cast({schedule,ScheduleInterval,Result}, State) ->
     %% Check REsult
-    io:format("Schedule Result  ~p~n",[{Result,?MODULE,?LINE}]),
+    misc_oam:print("Schedule Result  ~p~n",[{Result,?MODULE,?LINE}]),
     spawn(fun()->kick_scheduler(ScheduleInterval) end),
     {noreply, State};
 
@@ -302,6 +303,12 @@ code_change(_OldVsn, State, _Extra) ->
 %% Returns: non
 %% --------------------------------------------------------------------
 kick_scheduler(ScheduleInterval)->
+    misc_oam:print("kick_scheduler ~p~n",[{time(),?MODULE,?LINE}]),
+    timer:sleep(3000),
+    StatusMachines=rpc:call(node(),machine,status,[all],2*5000),
+    misc_oam:print("StatusMachines ~p~n",[StatusMachines]),
+    rpc:call(node(),machine,update_status,[StatusMachines],5000),
+    
     timer:sleep(ScheduleInterval),
     %% Check if lock is open so it's time for checking
 
@@ -311,7 +318,7 @@ kick_scheduler(ScheduleInterval)->
 		   {no_scheduling,[{active,ActiveApps}]};
 	       true->
 		   ActiveApps=rpc:call(node(),schedule,active,[],5*5000),
-		   MissingResult=rpc:call(node(),schedule,missing,[],5*5000),
+		   MissingResult=rpc:call(node(),schedule,missing,[],6*5000),
 		   DepricatedResult=rpc:call(node(),schedule,depricated,[],5*5000),
 		   {scheduled,[{active,ActiveApps},{missing,MissingResult},{depricated,DepricatedResult}]}
 	   end,

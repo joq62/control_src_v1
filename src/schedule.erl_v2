@@ -54,24 +54,28 @@ missing()->
 		[]->
 		    ok;
 		[WorkerAppSpec|_]->
-		    deployment:create_application(WorkerAppSpec)
-	    end;
+		    deployment:create_application(WorkerAppSpec);
 	[MasterAppSpec|_]->
-	    {ok,AppSpec,HostId,_VmId,_Vm,SdResult}=deployment:create_application(MasterAppSpec),
-	    misc_oam:print("AppSpec,HostId, SdResult ~p~n",[{AppSpec,HostId, SdResult,?MODULE,?LINE}]),
+	    deployment:create_application(MasterAppSpec),
 	    timer:sleep(1000),
 
-                     %% Add dbase nodes
+             %% Add dbase nodes
 	    {ok,BootHostId}=net:gethostname(),
 	    BootVmId="master",
 	    BootNode=list_to_atom(BootVmId++"@"++BootHostId),
-	    [{_AppId,_AppVsn,master,Directives,_Services}]=db_app_spec:read(MasterAppSpec),
-	    {host,HostId}=lists:keyfind(host,1,Directives),
-	    {vm_id,VmId}=lists:keyfind(vm_id,1,Directives),
-	    misc_oam:print("Add Mnesia node ~p~n",
-		      [rpc:call(BootNode,dbase_lib,add_node,[list_to_atom(VmId++"@"++HostId)],2*5000)])
+
+	    MissingMastersAppSpecsInfo=db_app_spec:read(MasterAppSpec)||AppSpec<-MissingMasters],
+	    Masters=[{lists:keyfind(host,1,Directives),lists:keyfind(vm_id,1,Directives)}||
+			{_AppId,_AppVsn,master,Directives,_Services}<-MissingMastersAppSpecsInfo],
+	    
+	    io:format("Add Mnesia node ~p~n",[
+					      [rpc:call(node(),dbase_lib,add_node,[list_to_atom(VmId++"@"++HostId)],2*5000)||
+						  {{host,HostId},{vm_id,VmId}}<-Masters]
+					     ]),
+	    timer:sleep(1500)
     end,    
    
+    
     {MissingMasters,MissingWorkers}.
     
     
