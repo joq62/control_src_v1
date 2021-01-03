@@ -316,7 +316,7 @@ code_change(_OldVsn, State, _Extra) ->
 %% Returns: non
 %% --------------------------------------------------------------------
 kick_scheduler(ScheduleInterval)->
-    misc_oam:print("kick_scheduler ~p~n",[{time(),?MODULE,?LINE}]),
+    misc_oam:print("kick_scheduler ~p~n",[{time(),node(),?MODULE,?LINE}]),
     timer:sleep(1000),
     StatusMachines=rpc:call(node(),machine,status,[all],2*5000),
    % misc_oam:print("StatusMachines ~p~n",[StatusMachines]),
