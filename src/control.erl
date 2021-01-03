@@ -328,11 +328,11 @@ kick_scheduler(ScheduleInterval)->
 
     Result=case rpc:call(node(),db_lock,is_open,[schedule,?LockInterval],2000) of
 	       false->
-		   misc_oam:print("Lock Closed ~p~n",[{time(),node(),?MODULE,?LINE}]),
+	%	   misc_oam:print("Lock Closed ~p~n",[{time(),node(),?MODULE,?LINE}]),
 		   ActiveApps=rpc:call(node(),schedule,active,[],5*5000),
 		   {no_scheduling,[{active,ActiveApps}]};
 	       true->
-		   misc_oam:print("Lock Open  ~p~n",[{time(),node(),?MODULE,?LINE}]),
+	%	   misc_oam:print("Lock Open  ~p~n",[{time(),node(),?MODULE,?LINE}]),
 		   ActiveApps=rpc:call(node(),schedule,active,[],5*5000),
 		   MissingResult=rpc:call(node(),schedule,missing,[],6*5000),
 		   DepricatedResult=rpc:call(node(),schedule,depricated,[],5*5000),
