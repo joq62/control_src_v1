@@ -25,6 +25,7 @@
 %% Definitions 
 -define(HbInterval,30*1000).
 -define(ScheduleInterval,2*30*1000).
+-define(LockInterval,40).
 %% --------------------------------------------------------------------
 
 -export([
@@ -316,7 +317,7 @@ code_change(_OldVsn, State, _Extra) ->
 %% Returns: non
 %% --------------------------------------------------------------------
 kick_scheduler(ScheduleInterval)->
-    misc_oam:print("kick_scheduler ~p~n",[{time(),node(),?MODULE,?LINE}]),
+%    misc_oam:print("kick_scheduler ~p~n",[{time(),node(),?MODULE,?LINE}]),
     timer:sleep(1000),
     StatusMachines=rpc:call(node(),machine,status,[all],2*5000),
    % misc_oam:print("StatusMachines ~p~n",[StatusMachines]),
@@ -325,11 +326,13 @@ kick_scheduler(ScheduleInterval)->
     timer:sleep(ScheduleInterval),
     %% Check if lock is open so it's time for checking
 
-    Result=case rpc:call(node(),db_lock,is_open,[schedule,10],2000) of
+    Result=case rpc:call(node(),db_lock,is_open,[schedule,?LockInterval],2000) of
 	       false->
+		   misc_oam:print("Lock Closed ~p~n",[{time(),node(),?MODULE,?LINE}]),
 		   ActiveApps=rpc:call(node(),schedule,active,[],5*5000),
 		   {no_scheduling,[{active,ActiveApps}]};
 	       true->
+		   misc_oam:print("Lock Open  ~p~n",[{time(),node(),?MODULE,?LINE}]),
 		   ActiveApps=rpc:call(node(),schedule,active,[],5*5000),
 		   MissingResult=rpc:call(node(),schedule,missing,[],6*5000),
 		   DepricatedResult=rpc:call(node(),schedule,depricated,[],5*5000),
