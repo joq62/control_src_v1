@@ -57,6 +57,10 @@ create_application(AppSpec)->
 		       [{ok,HostId},{ok,VmId},{ok,VmDir}]->
 			   case vm:create(HostId,VmId,VmDir,?Cookie) of
 			       {error,Reason}->
+				   rpc:multicall(misc_oam:masters(),
+						 master_log,ticket,
+						 [[{error,Reason}],node(),
+						  ?MODULE,?LINE]),
 				   {error,Reason};
 			       {ok,Vm}->
 				   CreateResult=[service:create(ServiceSpecId,VmDir,Vm)||ServiceSpecId<-ServiceSpecs],
@@ -65,16 +69,33 @@ create_application(AppSpec)->
 				   case CheckAllStarted of
 				       []->
 					   SdResult=[{rpc:call(node(),db_sd,create,[XServiceId,XServiceVsn,AppSpec,AppVsn,HostId,VmId,VmDir,Vm]),XServiceId,XServiceVsn,Vm}||{ok,XServiceId,XServiceVsn}<-CreateResult],
+					   
+					   rpc:multicall(misc_oam:masters(),
+							 master_log,log,
+							 [[create,application,AppSpec,HostId,VmId,Vm,SdResult],
+							  node(),?MODULE,?LINE]),
 					   {ok,AppSpec,HostId,VmId,Vm,SdResult};
 					   
 				       _->
-					   {error,[create_application,CheckAllStarted,?MODULE,?LINE]}
+					   rpc:multicall(misc_oam:masters(),
+							 master_log,ticket,
+							 [[{error,[create_application,CheckAllStarted,?MODULE,?LINE]}],
+							  node(),?MODULE,?LINE]),					   
+					   {error,[CheckAllStarted,?MODULE,?LINE]}
 				   end
 			   end;
 		       Reason->
+			   rpc:multicall(misc_oam:masters(),
+					 master_log,ticket,
+					 [[{error,Reason}],
+					  node(),?MODULE,?LINE]),
 			   {error,Reason}
 		   end;
 	       Reason->
+		   rpc:multicall(misc_oam:masters(),
+				 master_log,ticket,
+				 [[{error,Reason}],
+				  node(),?MODULE,?LINE]),
 		   {error,Reason}
 	   end,	    
     Result.
@@ -126,6 +147,10 @@ directive_info(AppSpec,Directive)->
 delete_application(AppSpec)->
     Result=case rpc:call(node(),db_sd,app_spec,[AppSpec]) of
 	       []->
+		   rpc:multicall(misc_oam:masters(),
+				 master_log,ticket,
+				 [[{error,[eexists,AppSpec]}],node(),
+				  ?MODULE,?LINE]),
 		   {error,[eexists,AppSpec]};
 	       ServicesList->
 		   [{_ServiceId,_ServiceVsn,_AppSpec,_AppVsn,_HostId,_VmId,VmDir,Vm}|_]=ServicesList,
@@ -159,7 +184,8 @@ missing_apps()->
     case Deleted of
 	[]->
 	    ok;
-	_->    misc_oam:print("Deleted ~p~n",[{Deleted,?MODULE,?LINE}])
+	_->    
+	    misc_oam:print("Deleted ~p~n",[{Deleted,?MODULE,?LINE}])
     end,
     %1.check if appspecs is presente in some of the services Simple algorithm 
     ActiveServicesApps=rpc:call(node(),db_sd,active_apps,[]),
@@ -279,9 +305,17 @@ load_app_specs(AppSpecDir,GitUser,GitPassWd)->
 			[]->
 			   ok;
 		       Reason->
+			   rpc:multicall(misc_oam:masters(),
+					 master_log,ticket,
+					 [[{error,Reason}],
+					  node(),?MODULE,?LINE]),
 			   {error,Reason}
 		   end;
 	       {error,Reason} ->
+		   rpc:multicall(misc_oam:masters(),
+				 master_log,ticket,
+				 [[{error,Reason}],
+				  node(),?MODULE,?LINE]),
 		   {error,Reason}
 	   end, 
     Result.
@@ -329,9 +363,17 @@ load_service_specs(SpecDir,GitUser,GitPassWd)->
 			[]->
 			   ok;
 		       Reason->
+			   rpc:multicall(misc_oam:masters(),
+					 master_log,ticket,
+					 [[{error,Reason}],
+					  node(),?MODULE,?LINE]),
 			   {error,Reason}
 		   end;
 	       {error,Reason} ->
+		   rpc:multicall(misc_oam:masters(),
+				 master_log,ticket,
+				 [[{error,Reason}],
+				  node(),?MODULE,?LINE]),
 		   {error,Reason}
 	   end, 
     Result.

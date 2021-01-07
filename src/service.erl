@@ -17,9 +17,25 @@
 create(ServiceSpecId,VmDir,Vm)->
     Result=case rpc:call(node(),db_service_def,read,[ServiceSpecId]) of
 	       []->
-		   {error,[eexists,ServiceSpecId]};
+		   rpc:multicall(misc_oam:masters(),
+				 master_log,ticket,
+				 [[{error,[eexists,ServiceSpecId]}],node(),
+				  ?MODULE,?LINE]);
 	       [{ServiceSpecId,ServiceId,ServiceVsn,StartCmd,GitPath}]->
-		   create(ServiceId,ServiceVsn,Vm,VmDir,StartCmd,GitPath)
+		   case create(ServiceId,ServiceVsn,Vm,VmDir,StartCmd,GitPath) of
+		       {ok,ServiceId,ServiceVsn}->
+			   rpc:multicall(misc_oam:masters(),
+					 master_log,log,
+					 [[{service_created,ServiceId,ServiceVsn}],
+					  node(),?MODULE,?LINE]),
+			   ok;
+		       {error,[Reason,?MODULE,?LINE]}->
+			   rpc:multicall(misc_oam:masters(),
+					 master_log,ticket,
+					 [[{error,[Reason,?MODULE,?LINE]}],
+					  node(),?MODULE,?LINE]),
+			   {error,[Reason,?MODULE,?LINE]}
+		   end
 	   end,
     Result.
 
@@ -54,3 +70,4 @@ create(ServiceId,ServiceVsn,Vm,VmDir,{application,start,A},GitPath)->
 %% 
 %%
 %% --------------------------------------------------------------------
+
