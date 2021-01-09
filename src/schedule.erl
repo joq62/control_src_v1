@@ -54,22 +54,38 @@ missing()->
 		[]->
 		    ok;
 		WorkerAppSpecs->
-		    misc_oam:print("Start WorkerAppSpecs  ~p~n",[{WorkerAppSpecs, ?MODULE,?LINE}]),
-		    misc_oam:print("StartResult WorkerAppSpecs ~p~n",[[deployment:create_application(WorkerAppSpec)||WorkerAppSpec<-WorkerAppSpecs]])
+		    rpc:multicall(misc_oam:masters(),
+				  sys_log,log,
+				  [["Start WorkerAppSpecs ",WorkerAppSpecs],node(),
+				   ?MODULE,?LINE]),
+		    rpc:multicall(misc_oam:masters(),
+				  sys_log,log,
+				  [["StartResult WorkerAppSpecs",[deployment:create_application(WorkerAppSpec)||
+								     WorkerAppSpec<-WorkerAppSpecs]],node(),
+				   ?MODULE,?LINE])
 	    end;
 	MasterAppSpecs->
-	    misc_oam:print("Start MasterAppSpecs  ~p~n",[{MasterAppSpecs, ?MODULE,?LINE}]),
+	     rpc:multicall(misc_oam:masters(),
+			   sys_log,log,
+			   [["Start Start MasterAppSpecs ",MasterAppSpecs],node(),
+			    ?MODULE,?LINE]),
 	    StartResult=[deployment:create_application(MasterAppSpec)||MasterAppSpec<-MasterAppSpecs],
+
+	    rpc:multicall(misc_oam:masters(),
+			  sys_log,log,
+			  [["StartResult Masters",StartResult],node(),
+			   ?MODULE,?LINE]),
+
 	    misc_oam:print("StartResult ~p~n",[{StartResult,?MODULE,?LINE}]),
 	    timer:sleep(1000),
-
-                     %% Add dbase nodes
+	    
+	    %% Add dbase nodes
 	    {ok,BootHostId}=net:gethostname(),
 	    BootVmId="master",
 	    BootNode=list_to_atom(BootVmId++"@"++BootHostId),
 	    ok=add_node(MasterAppSpecs,BootNode)
     end,    
-   
+    
     {MissingMasters,MissingWorkers}.
     
 add_node([],_)->
@@ -78,8 +94,10 @@ add_node([MasterAppSpec|T],BootNode)->
     [{_AppId,_AppVsn,master,Directives,_Services}]=db_app_spec:read(MasterAppSpec),
     {host,HostId}=lists:keyfind(host,1,Directives),
     {vm_id,VmId}=lists:keyfind(vm_id,1,Directives),
-    misc_oam:print("Add Mnesia node ~p~n",
-		   [rpc:call(BootNode,dbase_lib,add_node,[list_to_atom(VmId++"@"++HostId)],2*5000)]),
+    rpc:multicall(misc_oam:masters(),
+		  sys_log,log,
+		  [["Add Mnesia node ",rpc:call(BootNode,dbase_lib,add_node,[list_to_atom(VmId++"@"++HostId)],2*5000)]
+		  ,node(),?MODULE,?LINE]),
     add_node(T,BootNode).
 	
 %% --------------------------------------------------------------------

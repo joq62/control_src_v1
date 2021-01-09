@@ -52,7 +52,7 @@
 %% --------------------------------------------------------------------
 create_application(AppSpec)->
     Result=case rpc:call(node(),db_app_spec,read,[AppSpec]) of
-	       [{AppSpec,AppVsn,_Type,Directive,EnvVars,ServiceSpecs}]->
+	       [{AppSpec,AppVsn,_Type,Directive,ServiceSpecs}]->
 		   case directive_info(AppSpec,Directive) of
 		       [{ok,HostId},{ok,VmId},{ok,VmDir}]->
 			   case vm:create(HostId,VmId,VmDir,?Cookie) of
@@ -63,8 +63,6 @@ create_application(AppSpec)->
 						  ?MODULE,?LINE]),
 				   {error,Reason};
 			       {ok,Vm}->
-				   % Set Application env variables
-				   [rpc:call(Vm,application,set_env,[App,Par,Val],2000)||{App,Par,Val}<-EnvVars],
 				   CreateResult=[service:create(ServiceSpecId,VmDir,Vm)||ServiceSpecId<-ServiceSpecs],
 				   CheckAllStarted=[{R,ServiceId,ServiceVsn}||{R,ServiceId,ServiceVsn}<-CreateResult,
 									      R/=ok],

@@ -142,7 +142,11 @@ heartbeat(Interval)->
 %
 %% --------------------------------------------------------------------
 init(_Args) ->
-    misc_oam:print("Service started ~p~n",[{?MODULE,node()}]),
+    rpc:multicall(misc_oam:masters(),
+		  sys_log,log,
+		  [["Starting gen server =", ?MODULE],
+		   node(),?MODULE,?LINE]),
+    timer:sleep(1),
     spawn(fun()->kick_scheduler(?ScheduleInterval) end),
    
     {ok, #state{}}.   
@@ -257,9 +261,17 @@ handle_cast({schedule,ScheduleInterval,Result}, State) ->
 	{scheduled,[{active,_},
 		    {missing,_},
 		     {depricated,_}]}->
-	    misc_oam:print("Schedule Result  ~p~n",[{Result,?MODULE,?LINE}]);
+	    rpc:multicall(misc_oam:masters(),
+			  sys_log,log,
+			  [["Schedule Result" ,Result],
+			  node(),?MODULE,?LINE]),
+	    timer:sleep(1);
 	X ->
-	    misc_oam:print("Unmatched  ~p~n",[X])
+	    rpc:multicall(misc_oam:masters(),
+			  sys_log,log,
+			  [["Unmatched" ,X],
+			  node(),?MODULE,?LINE]),
+	    timer:sleep(1)
     end,
     spawn(fun()->kick_scheduler(ScheduleInterval) end),
     {noreply, State};
@@ -317,10 +329,20 @@ code_change(_OldVsn, State, _Extra) ->
 %% Returns: non
 %% --------------------------------------------------------------------
 kick_scheduler(ScheduleInterval)->
+    rpc:multicall(misc_oam:masters(),
+		  sys_log,log,
+		  [[time(),"kick_scheduler"],
+		   node(),?MODULE,?LINE]),
+    timer:sleep(1),
 %    misc_oam:print("kick_scheduler ~p~n",[{time(),node(),?MODULE,?LINE}]),
     timer:sleep(1000),
     StatusMachines=rpc:call(node(),machine,status,[all],2*5000),
-   % misc_oam:print("StatusMachines ~p~n",[StatusMachines]),
+    io:format("StatusMachines ~p~n",[StatusMachines]),
+    rpc:multicall(misc_oam:masters(),
+		  sys_log,log,
+		  [[time(),"StatusMachinesr =", StatusMachines],
+		   node(),?MODULE,?LINE],1000),
+    timer:sleep(1),
     rpc:call(node(),machine,update_status,[StatusMachines],5000),
     
     timer:sleep(ScheduleInterval),
